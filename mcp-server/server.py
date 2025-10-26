@@ -7,6 +7,8 @@ Provides AI-accessible tools for managing Airflow workflows
 import os
 import json
 import logging
+import base64
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
@@ -29,6 +31,9 @@ AIRFLOW_API_USERNAME = os.getenv("AIRFLOW_API_USERNAME", "admin")
 AIRFLOW_API_PASSWORD = os.getenv("AIRFLOW_API_PASSWORD", "admin")
 MCP_SERVER_HOST = os.getenv("MCP_SERVER_HOST", "0.0.0.0")
 MCP_SERVER_PORT = int(os.getenv("MCP_SERVER_PORT", "3000"))
+
+# DAG files directory (mounted volume)
+DAGS_FOLDER = os.getenv("DAGS_FOLDER", "/opt/airflow/dags")
 
 
 class AirflowClient:
@@ -173,6 +178,127 @@ class AirflowClient:
         )
         response.raise_for_status()
         return response.json()
+    
+    async def pause_dag(self, dag_id: str) -> Dict[str, Any]:
+        """Pause a DAG"""
+        response = await self.client.patch(
+            f"/dags/{dag_id}",
+            json={"is_paused": True}
+        )
+        response.raise_for_status()
+        return response.json()
+    
+    async def unpause_dag(self, dag_id: str) -> Dict[str, Any]:
+        """Unpause a DAG"""
+        response = await self.client.patch(
+            f"/dags/{dag_id}",
+            json={"is_paused": False}
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+class DAGFileManager:
+    """Manager for DAG file operations"""
+    
+    def __init__(self, dags_folder: str):
+        self.dags_folder = Path(dags_folder)
+        self.dags_folder.mkdir(parents=True, exist_ok=True)
+    
+    def list_dag_files(self) -> List[Dict[str, Any]]:
+        """List all Python files in the DAGs folder"""
+        files = []
+        for file_path in self.dags_folder.glob("*.py"):
+            if file_path.name.startswith("__"):
+                continue
+            stat = file_path.stat()
+            files.append({
+                "filename": file_path.name,
+                "size": stat.st_size,
+                "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                "path": str(file_path.relative_to(self.dags_folder))
+            })
+        return sorted(files, key=lambda x: x["filename"])
+    
+    def read_dag_file(self, filename: str) -> str:
+        """Read content of a DAG file"""
+        file_path = self.dags_folder / filename
+        if not file_path.exists():
+            raise FileNotFoundError(f"DAG file '{filename}' not found")
+        if not file_path.suffix == ".py":
+            raise ValueError("Only Python files (.py) are allowed")
+        return file_path.read_text(encoding="utf-8")
+    
+    def write_dag_file(self, filename: str, content: str, overwrite: bool = False) -> Dict[str, Any]:
+        """Write content to a DAG file"""
+        if not filename.endswith(".py"):
+            raise ValueError("DAG filename must end with .py")
+        if filename.startswith("__"):
+            raise ValueError("DAG filename cannot start with __")
+        
+        file_path = self.dags_folder / filename
+        
+        if file_path.exists() and not overwrite:
+            raise FileExistsError(f"DAG file '{filename}' already exists. Use overwrite=True to replace")
+        
+        # Validate Python syntax
+        try:
+            compile(content, filename, 'exec')
+        except SyntaxError as e:
+            raise ValueError(f"Invalid Python syntax: {str(e)}")
+        
+        file_path.write_text(content, encoding="utf-8")
+        stat = file_path.stat()
+        
+        return {
+            "filename": filename,
+            "size": stat.st_size,
+            "created": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+            "message": f"DAG file '{filename}' {'updated' if overwrite else 'created'} successfully"
+        }
+    
+    def delete_dag_file(self, filename: str) -> Dict[str, str]:
+        """Delete a DAG file"""
+        file_path = self.dags_folder / filename
+        if not file_path.exists():
+            raise FileNotFoundError(f"DAG file '{filename}' not found")
+        if not file_path.suffix == ".py":
+            raise ValueError("Only Python files (.py) can be deleted")
+        
+        file_path.unlink()
+        return {
+            "filename": filename,
+            "message": f"DAG file '{filename}' deleted successfully"
+        }
+    
+    def validate_dag_file(self, content: str) -> Dict[str, Any]:
+        """Validate DAG file content"""
+        issues = []
+        
+        # Check Python syntax
+        try:
+            compile(content, '<string>', 'exec')
+        except SyntaxError as e:
+            issues.append({"type": "syntax_error", "message": str(e), "line": e.lineno})
+        
+        # Check for required imports
+        required_patterns = [
+            (r'from airflow import DAG', 'Missing Airflow DAG import'),
+            (r'from airflow.operators', 'Missing operator imports'),
+        ]
+        
+        for pattern, message in required_patterns:
+            if pattern not in content:
+                issues.append({"type": "warning", "message": message})
+        
+        # Check for DAG definition
+        if 'with DAG(' not in content and 'DAG(' not in content:
+            issues.append({"type": "error", "message": "No DAG definition found"})
+        
+        return {
+            "valid": len([i for i in issues if i["type"] == "error"]) == 0,
+            "issues": issues
+        }
 
 
 # Initialize Airflow client
@@ -181,6 +307,9 @@ airflow_client = AirflowClient(
     AIRFLOW_API_USERNAME, 
     AIRFLOW_API_PASSWORD
 )
+
+# Initialize DAG file manager
+dag_file_manager = DAGFileManager(DAGS_FOLDER)
 
 # Initialize MCP Server
 mcp_server = Server("airflow-mcp-server")
@@ -406,6 +535,107 @@ async def list_tools() -> List[Tool]:
                     }
                 }
             }
+        ),
+        Tool(
+            name="pause_dag",
+            description="Pause a DAG to prevent it from scheduling new runs",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "dag_id": {
+                        "type": "string",
+                        "description": "The ID of the DAG to pause"
+                    }
+                },
+                "required": ["dag_id"]
+            }
+        ),
+        Tool(
+            name="unpause_dag",
+            description="Unpause a DAG to allow it to schedule new runs",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "dag_id": {
+                        "type": "string",
+                        "description": "The ID of the DAG to unpause"
+                    }
+                },
+                "required": ["dag_id"]
+            }
+        ),
+        Tool(
+            name="list_dag_files",
+            description="List all DAG Python files in the dags folder",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
+        Tool(
+            name="read_dag_file",
+            description="Read the content of a specific DAG file",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "filename": {
+                        "type": "string",
+                        "description": "The filename of the DAG file (must end with .py)"
+                    }
+                },
+                "required": ["filename"]
+            }
+        ),
+        Tool(
+            name="upload_dag_file",
+            description="Upload a new DAG file or update an existing one",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "filename": {
+                        "type": "string",
+                        "description": "The filename for the DAG (must end with .py)"
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "The Python code content of the DAG file"
+                    },
+                    "overwrite": {
+                        "type": "boolean",
+                        "description": "Whether to overwrite if file exists (default: false)",
+                        "default": False
+                    }
+                },
+                "required": ["filename", "content"]
+            }
+        ),
+        Tool(
+            name="delete_dag_file",
+            description="Delete a DAG file from the dags folder",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "filename": {
+                        "type": "string",
+                        "description": "The filename of the DAG file to delete"
+                    }
+                },
+                "required": ["filename"]
+            }
+        ),
+        Tool(
+            name="validate_dag_file",
+            description="Validate DAG file content for syntax and structure errors",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "content": {
+                        "type": "string",
+                        "description": "The Python code content to validate"
+                    }
+                },
+                "required": ["content"]
+            }
         )
     ]
 
@@ -481,6 +711,36 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
             result = await airflow_client.get_connections(
                 limit=arguments.get("limit", 100)
             )
+        
+        elif name == "pause_dag":
+            result = await airflow_client.pause_dag(arguments["dag_id"])
+        
+        elif name == "unpause_dag":
+            result = await airflow_client.unpause_dag(arguments["dag_id"])
+        
+        elif name == "list_dag_files":
+            result = dag_file_manager.list_dag_files()
+        
+        elif name == "read_dag_file":
+            content = dag_file_manager.read_dag_file(arguments["filename"])
+            result = {
+                "filename": arguments["filename"],
+                "content": content,
+                "size": len(content)
+            }
+        
+        elif name == "upload_dag_file":
+            result = dag_file_manager.write_dag_file(
+                filename=arguments["filename"],
+                content=arguments["content"],
+                overwrite=arguments.get("overwrite", False)
+            )
+        
+        elif name == "delete_dag_file":
+            result = dag_file_manager.delete_dag_file(arguments["filename"])
+        
+        elif name == "validate_dag_file":
+            result = dag_file_manager.validate_dag_file(arguments["content"])
             
         else:
             raise ValueError(f"Unknown tool: {name}")

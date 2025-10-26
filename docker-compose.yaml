@@ -193,6 +193,9 @@ services:
       - AIRFLOW_BASE_URL=${AIRFLOW_BASE_URL:-http://airflow-webserver:8080}
       - AIRFLOW_API_USERNAME=${AIRFLOW_API_USERNAME:-admin}
       - AIRFLOW_API_PASSWORD=${AIRFLOW_API_PASSWORD:-admin}
+      - DAGS_FOLDER=/opt/airflow/dags
+    volumes:
+      - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     depends_on:
       - airflow-webserver
     restart: unless-stopped
