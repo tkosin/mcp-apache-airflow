@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "airflow": {
+      "command": "docker",
+      "args": [
+        "exec",
+        "-i",
+        "mcp-server",
+        "python",
+        "/app/server.py"
+      ],
+      "env": {
+        "AIRFLOW_BASE_URL": "http://localhost:8080",
+        "AIRFLOW_API_USERNAME": "admin",
+        "AIRFLOW_API_PASSWORD": "admin123"
+      }
+    }
+  }
+}
