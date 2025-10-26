@@ -40,18 +40,33 @@ cd airflow-deploy-mcp
 - 🔐 **Security**: Authenticated access via Airflow REST API
 
 ### Available MCP Tools
-- \`list_dags\` - List all available DAGs
-- \`get_dag\` - Get detailed DAG information
-- \`trigger_dag\` - Trigger DAG runs with configuration
-- \`get_dag_runs\` - View DAG run history
-- \`get_dag_run_status\` - Check specific run status
-- \`get_task_instances\` - List tasks in a DAG run
-- \`get_task_logs\` - Retrieve task execution logs
-- \`list_variables\` - List Airflow variables
-- \`get_variable\` - Get variable value
-- \`set_variable\` - Set or update variables
-- \`delete_variable\` - Delete variables
-- \`list_connections\` - List Airflow connections
+
+#### DAG Management
+- `list_dags` - List all available DAGs
+- `get_dag` - Get detailed DAG information
+- `trigger_dag` - Trigger DAG runs with configuration
+- `pause_dag` - Pause a DAG to prevent new runs
+- `unpause_dag` - Unpause a DAG to allow scheduling
+- `get_dag_runs` - View DAG run history
+- `get_dag_run_status` - Check specific run status
+
+#### DAG File Management
+- `list_dag_files` - List all DAG files in dags folder
+- `read_dag_file` - Read content of a DAG file
+- `upload_dag_file` - Upload new DAG or update existing
+- `delete_dag_file` - Delete DAG files
+- `validate_dag_file` - Validate Python syntax and DAG structure
+
+#### Task Management
+- `get_task_instances` - List tasks in a DAG run
+- `get_task_logs` - Retrieve task execution logs
+
+#### Configuration
+- `list_variables` - List Airflow variables
+- `get_variable` - Get variable value
+- `set_variable` - Set or update variables
+- `delete_variable` - Delete variables
+- `list_connections` - List Airflow connections
 
 ## 📋 Prerequisites
 
@@ -257,6 +272,26 @@ AI: "The ETL pipeline failed, show me logs from the transform task"
 **Scenario 4: Manage Configuration**
 ```
 AI: "List all Airflow variables and their values"
+```
+
+**Scenario 5: Upload a New DAG**
+```
+AI: "Create a new DAG file called my_custom_dag.py with a simple hello world task"
+```
+
+**Scenario 6: List and Read DAG Files**
+```
+AI: "Show me all DAG files and then read the content of example_hello_world.py"
+```
+
+**Scenario 7: Validate DAG Before Upload**
+```
+AI: "Validate this DAG code before I upload it: [paste code]"
+```
+
+**Scenario 8: Pause/Unpause DAG**
+```
+AI: "Pause the example_etl_pipeline DAG temporarily"
 ```
 
 ## 📁 Project Structure
