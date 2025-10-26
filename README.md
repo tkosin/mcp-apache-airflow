@@ -444,6 +444,9 @@ echo $(id -u)
 
 ## 📚 Documentation
 
+### This Project
+- [Usage Examples](EXAMPLES.md) - Practical examples of using MCP Server for DAG management
+
 ### Apache Airflow
 - [Official Documentation](https://airflow.apache.org/docs/)
 - [REST API Reference](https://airflow.apache.org/docs/apache-airflow/stable/stable-rest-api-ref.html)
