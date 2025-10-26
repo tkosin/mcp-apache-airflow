@@ -86,7 +86,7 @@ cd airflow-deploy-mcp
 
 ### 2. Configure Environment Variables
 
-Review and customize the \`.env\` file:
+Review and customize the `.env` file:
 
 ```bash
 cat .env
@@ -126,14 +126,14 @@ All services should show as "healthy" or "running".
 
 1. Open browser to: **http://localhost:8080**
 2. Login with:
-   - **Username**: \`admin\`
-   - **Password**: \`admin123\`
+   - **Username**: `admin`
+   - **Password**: `admin123`
 
 ### Example DAGs
 
 The project includes two example DAGs:
 
-#### 1. \`example_hello_world\`
+#### 1. `example_hello_world`
 - **Purpose**: Simple DAG for testing basic functionality
 - **Tasks**: bash_hello → python_hello → print_context → goodbye
 - **Schedule**: Manual trigger only
@@ -141,11 +141,11 @@ The project includes two example DAGs:
 
 **How to test**:
 1. Navigate to DAGs page in Airflow UI
-2. Find \`example_hello_world\`
+2. Find `example_hello_world`
 3. Click the Play button (▶️) to trigger
 4. View logs in Graph view
 
-#### 2. \`example_etl_pipeline\`
+#### 2. `example_etl_pipeline`
 - **Purpose**: Complete ETL workflow demonstration
 - **Tasks**: start → extract → transform → validate → load → notify → end
 - **Schedule**: Daily (or manual trigger)
@@ -153,7 +153,7 @@ The project includes two example DAGs:
 
 **How to test**:
 1. Go to DAGs page
-2. Find \`example_etl_pipeline\`
+2. Find `example_etl_pipeline`
 3. Toggle the On/Off switch to "On" (for auto-scheduling)
 4. Click Play button for manual trigger
 5. Monitor execution in Graph or Grid view
@@ -200,7 +200,7 @@ cat mcp-config.json
 2. **Add to Warp**:
    - Open Warp Settings
    - Navigate to "Features" → "MCP Servers"
-   - Add the configuration from \`mcp-config.json\`
+   - Add the configuration from `mcp-config.json`
 
 3. **Restart Warp terminal**
 
@@ -208,7 +208,7 @@ cat mcp-config.json
 
 Add this configuration to Warp MCP settings:
 
-\`\`\`json
+```json
 {
   "mcpServers": {
     "airflow": {
@@ -228,7 +228,7 @@ Add this configuration to Warp MCP settings:
     }
   }
 }
-\`\`\`
+```
 
 ### Testing MCP Server
 
@@ -348,7 +348,7 @@ docker-compose logs airflow-webserver
 docker-compose logs -f airflow-webserver
 ```
 
-Look for: \`"Running the Gunicorn Server"\`
+Look for: `"Running the Gunicorn Server"`
 
 **Check for port conflicts**:
 ```bash
@@ -384,7 +384,7 @@ docker exec -it mcp-server python -c "import requests; print(requests.get('http:
 ```
 
 **Verify Warp configuration**:
-- Check \`mcp-config.json\` syntax
+- Check `mcp-config.json` syntax
 - Restart Warp terminal
 - Review Warp logs
 
@@ -424,7 +424,7 @@ echo $(id -u)
 **⚠️ Important for Production Deployments**:
 
 1. **Change Default Passwords**:
-   - Admin password in \`.env\`
+   - Admin password in `.env`
    - PostgreSQL credentials
    - Fernet key and secret key
 
@@ -473,7 +473,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you encounter issues or need help:
 
 1. Check the [Troubleshooting](#troubleshooting) section
-2. Review logs with \`docker-compose logs\`
+2. Review logs with `docker-compose logs`
 3. Check Airflow UI → Browse → Task Instance Logs
 
 ---
